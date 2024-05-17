@@ -1,0 +1,105 @@
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+public class Main {
+    public static void main(String[] args) {
+        List<Object[]> dataList = Arrays.asList(
+                new Object[]{60, "P****o", 365, "p****s/d*********y", 1, null, "D*******m", "D*******m", 1, 4},
+                new Object[]{60, "P****o", 366, "p****s/a****l-p*********e", 2, null, "D********o A***l", "D********o A***l", 1, 4},
+                new Object[]{60, "P****o", 367, "p****s/a**-g****p", 3, null, "F****a E*****a", "F****a E*****a", 1, 4},
+                new Object[]{60, "P****o", 368, "p****s/t****-s******s", 4, null, "T**** d* A****s", "T**** d* A****s", 1, 4},
+                new Object[]{60, "P****o", 369, "p****s/v*****-b****d", 6, null, "Q***** d* V****s", "Q***** d* V****s", 1, 4},
+                new Object[]{60, "P****o", 370, "p****s/s****l-p******e", 5, null, "P****l d* E*****a", "P****l d* E*****a", 1, 4},
+                new Object[]{60, "P****o", 371, "r*******r/m**u", 7, null, "C******o d* m**u", "C******o d* m**u p*********o", 0, 1},
+                new Object[]{60, "P****o", 371, "r*******r/m**u", 7, null, "C******o d* m**u", "C******o d* m**u p*********o", 0, 2},
+                new Object[]{60, "P****o", 371, "r*******r/m**u", 7, null, "C******o d* m**u", "C******o d* m**u p*********o", 0, 3},
+                new Object[]{60, "P****o", 371, "r*******r/m**u", 7, null, "C******o d* m**u", "C******o d* m**u p*********o", 0, 4},
+                new Object[]{61, "P**********l", 372, "w**.g****e.c*m", 1, null, "C******o d* m**u p*********o", "M**u P******l E*****o", 1, 4}
+        );
+
+
+        // Group data by categoryId and categoryName, and then by id within those groups
+        Map<Integer, Map<String, Map<Integer, List<Object[]>>>> groupedData = dataList.stream()
+                .collect(Collectors.groupingBy(
+                        data -> (Integer) data[0],
+                        Collectors.groupingBy(
+                                data -> (String) data[1],
+                                Collectors.groupingBy(
+                                        data -> (Integer) data[2]
+                                )
+                        )
+                ));
+
+        // Convert grouped data into MenuDTO records
+        List<MenuDTO> menuDTOList = groupedData.entrySet().stream()
+                .flatMap(categoryEntry -> categoryEntry.getValue().entrySet().stream()
+                        .map(categoryNameEntry -> new MenuDTO(
+                                categoryEntry.getKey(),
+                                categoryNameEntry.getKey(),
+                                categoryNameEntry.getValue().entrySet().stream()
+                                        .map(idEntry -> {
+                                            List<String> urls = idEntry.getValue().stream()
+                                                    .map(data -> (String) data[3])
+                                                    .collect(Collectors.toList());
+                                            Object[] firstData = idEntry.getValue().get(0);
+                                            String url = (String) firstData[3];
+                                            Integer id = (Integer) firstData[2];
+                                            Integer ordination = (Integer) firstData[4];
+                                            String icon = (String) firstData[5];
+                                            String title = (String) firstData[6];
+                                            String description = (String) firstData[7];
+                                            Integer reportType = (Integer) firstData[8];
+                                            Integer permissionInt = idEntry.getValue().stream()
+                                                    .map(data -> (Integer) data[9])
+                                                    .reduce(0, (a, b) -> a | b);
+                                            PermissionDTO permission = new PermissionDTO(
+                                                    (permissionInt & 4) != 0,
+                                                    (permissionInt & 3) != 0,
+                                                    (permissionInt & 1) != 0,
+                                                    (permissionInt & 2) != 0
+                                            );
+
+                                            return new MenuPermissionDTO(id, url, ordination, icon, title, description, reportType, permission);
+                                        })
+                                        .sorted(Comparator.comparing(MenuPermissionDTO::id)) // Ordenação por id
+                                        .collect(Collectors.toList())
+                        ))
+                )
+                .sorted(Comparator.comparing(MenuDTO::categoryId) // Ordenação por categoryId
+                        .thenComparing(MenuDTO::categoryName)) // Ordenação por categoryName
+                .collect(Collectors.toList());
+
+        // Print or use the menuDTOList as needed
+        menuDTOList.forEach(System.out::println);
+    }
+
+    public record MenuDTO(
+            Integer categoryId,
+            String categoryName,
+            List<MenuPermissionDTO> menuPermissionDTOList
+    ) {
+    }
+
+    public record MenuPermissionDTO(
+            Integer id,
+            String url,
+            Integer ordination,
+            String icon,
+            String title,
+            String description,
+            Integer reportType,
+            PermissionDTO permission
+    ) {
+    }
+
+    public record PermissionDTO(
+            Boolean accessOption,
+            Boolean delete,
+            Boolean insert,
+            Boolean update
+    ) {
+    }
+}
